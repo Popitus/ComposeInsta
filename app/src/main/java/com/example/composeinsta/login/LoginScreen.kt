@@ -1,13 +1,15 @@
 package com.example.composeinsta.login
 
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -15,23 +17,27 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.composeinsta.R
+import com.example.composeinsta.detail.DetailActivity
 
 
 /** Login Page **/
 @Composable
 fun LoginPage(viewModel: LoginViewModel) {
 
+
     Box(modifier = Modifier.fillMaxSize()) {
         Header(Modifier.align(Alignment.TopEnd))
         Body(Modifier.align(Alignment.Center), viewModel)
-        Footer(Modifier.align(Alignment.BottomCenter))
+        Footer(Modifier.align(Alignment.BottomCenter), viewModel)
     }
 }
 
@@ -52,18 +58,16 @@ fun Header(modifier: Modifier) {
 fun Body(modifier: Modifier, viewModel: LoginViewModel) {
 
     /** Properties **/
-    val email:String by viewModel.email.observeAsState("")
-    val user:String by viewModel.user.observeAsState("")
-
-    val state = rememberSaveable { mutableStateOf(false)}
-    val passwordIcon = rememberSaveable { mutableStateOf(false)}
+    val password: String by viewModel.password.observeAsState("")
+    val email: String by viewModel.email.observeAsState("")
+    val state: Boolean by viewModel.enable.observeAsState(false)
 
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         ImageLogo()
-        TextBoxUser(user) {newUser -> viewModel.onUserChanged(newUser)}
-        TextBoxPass(email, passwordIcon) {newPass -> viewModel.onEmailChanged(newPass)}
+        TextBoxUser(email) { viewModel.onLoginChanged(it, password) }
+        TextBoxPass(password) { viewModel.onLoginChanged(email, it) }
         ForgotPass()
-        LoginButton(user,email,state)
+        LoginButton(state)
         SuperDivider()
         ContinueAs()
     }
@@ -91,7 +95,8 @@ fun TextBoxUser(userName: String, saveData: (String) -> Unit) {
             unfocusedBorderColor = Color(0x40CCCCCC)),
         modifier = Modifier
             .fillMaxWidth(0.9f)
-            .background(Color(0x20CCCCCC))
+            .background(Color(0x20CCCCCC)),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
 
     )
     Spacer(modifier = Modifier.padding(10.dp))
@@ -99,7 +104,8 @@ fun TextBoxUser(userName: String, saveData: (String) -> Unit) {
 }
 
 @Composable
-fun TextBoxPass(passName:String,passwordIcon:MutableState<Boolean>, saveMail: (String) -> Unit) {
+fun TextBoxPass(passName: String, saveMail: (String) -> Unit) {
+    val passwordIcon = rememberSaveable { mutableStateOf(false) }
     OutlinedTextField(
         value = passName,
         onValueChange = { saveMail(it) },
@@ -133,10 +139,12 @@ fun TextBoxPass(passName:String,passwordIcon:MutableState<Boolean>, saveMail: (S
             VisualTransformation.None
         } else {
             PasswordVisualTransformation()
-        }
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+
     )
     Spacer(modifier = Modifier.padding(10.dp))
-        }
+}
 
 @Composable
 fun ForgotPass() {
@@ -153,13 +161,15 @@ fun ForgotPass() {
 }
 
 @Composable
-fun LoginButton(user: String, mail: String, stateButton: MutableState<Boolean>) {
+fun LoginButton(stateButton: Boolean) {
+    val context = LocalContext.current
+
     Button(
         onClick = {
-            stateButton.value = user == mail
+            context.startActivity(Intent(context,DetailActivity::class.java))
         },
         colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF83C3F5)),
-        enabled = stateButton.value,
+        enabled = stateButton,
         modifier = Modifier
             .fillMaxWidth(0.9f)
             .height(50.dp)
@@ -177,7 +187,8 @@ fun LoginButton(user: String, mail: String, stateButton: MutableState<Boolean>) 
 
 @Composable
 fun SuperDivider() {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceAround) {
+    Row(verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceAround) {
         Divider(
             modifier = Modifier
                 .height(1.dp)
@@ -210,7 +221,7 @@ fun ContinueAs() {
             color = Color(0xFF2196F3),
 
 
-        )
+            )
     }
 
     Spacer(modifier = Modifier.padding(10.dp))
@@ -219,7 +230,10 @@ fun ContinueAs() {
 /** ------ **/
 /** Footer **/
 @Composable
-fun Footer(modifier: Modifier) {
+fun Footer(modifier: Modifier, viewModel: LoginViewModel) {
+
+    val openDialog: Boolean by viewModel.openDialog.observeAsState(false)
+
     Column(modifier = modifier) {
         Divider(
             modifier = Modifier
@@ -229,8 +243,27 @@ fun Footer(modifier: Modifier) {
         )
         Spacer(modifier = Modifier.padding(8.dp))
         Row(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(text = "Don´t have an account? ")
-            Text(text = "Sign up", color = Color(0xFF2196F3))
+            Text(
+                text = "Don´t have an account? ")
+            Text(
+                text = "Sign up",
+                color = Color(0xFF2196F3),
+                modifier = Modifier
+                    .clickable {
+                        viewModel.onOpenDialogChanged(true)
+                    })
+        }
+        if (openDialog) {
+            AlertDialog(
+                onDismissRequest = { viewModel.onOpenDialogChanged(false) },
+                title = { Text(text = "Error") },
+                text = { Text(text = "Demasiados usuarios en el sistema. Prueba otro día") },
+                confirmButton = {
+                    Button(onClick = { viewModel.onOpenDialogChanged(false) }) {
+                        Text(text = "Ok")
+                    }
+                },
+            )
         }
         Spacer(modifier = Modifier.padding(8.dp))
 
